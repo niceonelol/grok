@@ -72,7 +72,9 @@ class ArithmeticTokenizer:
     token_file = "tokens.txt"
 
     def __init__(self, data_dir=DEFAULT_DATA_DIR) -> None:
-        self.token_file = bf.join(data_dir, self.token_file)
+        print(data_dir)
+        #self.token_file = bf.join(data_dir, self.token_file)
+        self.token_file = os.path.join(data_dir, self.token_file)
 
         self.itos = self.get_tokens()
 

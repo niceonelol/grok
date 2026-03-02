@@ -1,0 +1,3 @@
+[submodule "phd"]
+	path = phd
+	url = https://github.com/tolgabirdal/PHDimGeneralization.git

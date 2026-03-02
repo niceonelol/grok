@@ -58,6 +58,14 @@ def get_weights(model):
             x0 = torch.cat((x0, p.data.view(-1)))
     return x0.cpu().numpy()
 
+# Returns the weights of a model as a torch Tensor
+# Copies method from Tolga Birdal
+def get_weights_fast(model):
+    w = []
+    for p in net.parameters():
+        w.append(p.view(-1))
+    return torch.cat(w)
+
 
 def get_sharpness(data_loader, model, subspace_dim=10, epsilon=1e-3, maxiter=10):
     """
