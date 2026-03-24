@@ -495,6 +495,13 @@ class TrainableTransformer(LightningModule):
         """
         outputs = self.training_step_outputs
         epoch_is_to_be_logged = self.current_epoch == self.next_train_epoch_to_log
+
+        self.weights_window.append(get_weights_fast(self.transformer))
+        calc_ph_flag = False
+        if len(self.weights_window) > WEIGHT_WINDOW_SIZE:
+            self.weights_window.popleft()
+            calc_ph_flag = True
+
         if epoch_is_to_be_logged:
             self.next_train_epoch_to_log = max(
                 int(1.01 * self.next_train_epoch_to_log),
@@ -521,14 +528,10 @@ class TrainableTransformer(LightningModule):
                     self._save_inputs(outputs, ds="train")
                 self._save_activations(outputs, ds="train")
             
-            self.weights_window.append(get_weights_fast(self.transformer))
-            phdim_0 = None
-            if len(self.weights_window) > WEIGHT_WINDOW_SIZE:
-                self.weights_window.popleft()
-                phdim_0 = calculate_ph_dim_gpu(torch.stack(list(self.weights_window)),
+            phdim_0 = calculate_ph_dim_gpu(torch.stack(list(self.weights_window)),
                                              min_points=WEIGHT_WINDOW_SIZE//10,
                                              max_points=WEIGHT_WINDOW_SIZE,
-                                             point_jump=WEIGHT_WINDOW_SIZE//10)
+                                             point_jump=WEIGHT_WINDOW_SIZE//10) if calc_ph_flag else None
 
             logs = {
                 "train_loss": loss,
@@ -760,7 +763,7 @@ def train(hparams: Namespace) -> None:
     early_stopping = EarlyStopping(monitor="val_accuracy",
                                    mode="max",
                                    stopping_threshold=0.99,
-                                   patience=50,
+                                   patience=50000,
                                    verbose=True)
 
     trainer_args = {

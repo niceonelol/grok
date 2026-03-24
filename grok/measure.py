@@ -62,7 +62,7 @@ def get_weights(model):
 # Copies method from Tolga Birdal
 def get_weights_fast(model):
     w = []
-    for p in net.parameters():
+    for p in model.parameters():
         w.append(p.view(-1))
     return torch.cat(w)
 
