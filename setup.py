@@ -2,7 +2,8 @@ from setuptools import find_packages, setup
 
 setup(
     name="grok",
-    packages=find_packages(),
+    #package_dir={"": ".", "torchph": "torchph/torchph"},
+    packages=find_packages(include=["grok", "grok.*", "phd", "phd.*", "torchph", "torchph.*"]),
     version="0.0.1",
     install_requires=[
         "pytorch_lightning",

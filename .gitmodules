@@ -1,3 +1,6 @@
 [submodule "phd"]
 	path = phd
 	url = https://github.com/tolgabirdal/PHDimGeneralization.git
+[submodule "torchph"]
+	path = torchph
+	url = https://github.com/c-hofer/torchph.git

@@ -453,6 +453,7 @@ class ArithmeticIterator(torch.utils.data.IterableDataset):
         """
         :returns: this iterator
         """
+        self.reset_iteration()
         return self
 
     def __next__(self) -> Dict[str, Tensor]:
