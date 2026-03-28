@@ -18,7 +18,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from pytorch_lightning import LightningModule, Trainer
-from pytorch_lightning.callbacks import Callback, ModelCheckpoint
+from pytorch_lightning.callbacks import Callback, ModelCheckpoint, TQDMProgressBar
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.loggers import CSVLogger
 from torch import Tensor
@@ -39,7 +39,6 @@ from phd.topology import calculate_ph_dim_gpu
 
 DEFAULT_LOG_DIR = "logs"
 WEIGHT_WINDOW_SIZE = 100
-
 
 class TrainableTransformer(LightningModule):
     """
@@ -77,7 +76,7 @@ class TrainableTransformer(LightningModule):
 
         self.curr_val_accuracy = None
 
-        self.weights_window = deque([])
+        self.weights_window = []
 
     @staticmethod
     def add_model_specific_args(parser: ArgumentParser) -> ArgumentParser:
@@ -113,7 +112,7 @@ class TrainableTransformer(LightningModule):
             help="for list operations, the length of the lists",
         )
 
-        parser.add_argument("--train_data_pct", type=float, default=5)
+        parser.add_argument("--train_data_pct", type=float, default=80)
         parser.add_argument("--warmup_steps", type=int, default=10)
         parser.add_argument("--anneal_lr_steps", type=int, default=100000)
         parser.add_argument("--anneal_lr", dest="anneal_lr", action="store_true")
@@ -143,7 +142,7 @@ class TrainableTransformer(LightningModule):
         )
 
         return parser
-
+    
     def prepare_data(self) -> None:
         """
         Used by pytorch_lighting
@@ -454,7 +453,9 @@ class TrainableTransformer(LightningModule):
         :returns: a dict with loss, accuracy, lr, probabilities of solutions,
                   attentions, and values
         """
-        print("CALLED TRAINING_STEP")
+        if self.next_train_epoch_to_log < self.current_epoch:
+            self.next_train_epoch_to_log = self.current_epoch
+
         if batch_idx == 0:
             self.training_epoch_start_time = time.time()
             self.fwd_time_in_epoch = 0
@@ -501,19 +502,18 @@ class TrainableTransformer(LightningModule):
         :returns: a dict with loss, accuracy, lr, probabilities of solutions,
                   attentions, and values
         """
-        print("CALLED ON_TRAIN_EPOCH_END")
         outputs = self.training_step_outputs
         epoch_is_to_be_logged = self.current_epoch == self.next_train_epoch_to_log
 
         self.weights_window.append(get_weights_fast(self.transformer))
         calc_ph_flag = False
         if len(self.weights_window) > WEIGHT_WINDOW_SIZE:
-            self.weights_window.popleft()
+            self.weights_window.pop(0)
             calc_ph_flag = True
 
         if epoch_is_to_be_logged:
             self.next_train_epoch_to_log = max(
-                int(1.01 * self.next_train_epoch_to_log),
+                int(1.02 * self.next_train_epoch_to_log),
                 self.next_train_epoch_to_log + 1,
             )
             with torch.no_grad():
@@ -573,7 +573,6 @@ class TrainableTransformer(LightningModule):
         :returns: a dict with val_loss, val_accuracy, probabilities of solutions,
                   attentions, and values
         """
-        print("CALLED VALIDATION_STEP")
         if self.next_epoch_to_eval < self.current_epoch:
             self.next_epoch_to_eval = self.current_epoch
         if self.current_epoch != self.next_epoch_to_eval:
@@ -593,7 +592,6 @@ class TrainableTransformer(LightningModule):
         if self.current_epoch == 0:
             output["x_lhs"] = x_lhs
         self.validation_step_outputs.append(output)
-        #print("VALIDATION STEP OUTPUTS LENGTH: ", len(self.validation_step_outputs))
         return output
 
     def on_validation_epoch_end(self):
@@ -605,15 +603,12 @@ class TrainableTransformer(LightningModule):
         :param batch_idx: which batch this is in the epoch.
         :returns: a dict with val_loss, val_accuracy
         """
-        print("CALLED ON_VALIDATION_EPOCH_END")
-        #print("VALIDATION STEP OUTPUTS LENGTH AGAIN: ", len(self.validation_step_outputs))
         outputs = self.validation_step_outputs
-        #print("OUTPUTS: \n", outputs)
         validation_is_real = len(outputs[0]) != 0
 
         if validation_is_real:
             self.next_epoch_to_eval = max(
-                int(1.01 * self.next_epoch_to_eval), self.next_epoch_to_eval + 1
+                int(1.02 * self.next_epoch_to_eval), self.next_epoch_to_eval + 1
             )
 
             loss = torch.stack([x["partial_val_loss"] for x in outputs]).sum()
@@ -780,13 +775,13 @@ def train(hparams: Namespace) -> None:
 
     early_stopping = EarlyStopping(monitor="val_accuracy",
                                    mode="max",
-                                   stopping_threshold=0.995,
+                                   stopping_threshold=99,
                                    patience=50000,
                                    verbose=True)
 
     trainer_args = {
         "max_steps": hparams.max_steps,
-        "min_steps": hparams.max_steps,
+        #"min_steps": hparams.max_steps,
         "max_epochs": int(1e5),
         "val_check_interval": 1,
         #"check_val_every_n_epoch": 1,
@@ -919,7 +914,7 @@ def add_args(parser=None) -> Namespace:
     parser.add_argument("--random_seed", type=int, default=-1)
     parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--max_epochs", type=int, default=100000)
-    parser.add_argument("--max_steps", type=int, default=100000)
+    parser.add_argument("--max_steps", type=int, default=1000000)
     # parser.add_argument("--checkpoint_period", type=int, default=1)
     parser = TrainableTransformer.add_model_specific_args(parser)
     return parser
