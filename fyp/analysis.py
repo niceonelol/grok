@@ -5,6 +5,17 @@ import os
 
 ROOT = "fyp/data"
 
+"""
+
+DATASET SIZES USED:
+
+ADDITION + MULTIPLICATION: 50
+SUBTRACTION: 75
+SUBTRACTION-60: 60
+DIVISION: 66.7
+
+"""
+
 def plot_accuracies_phdim_against_epochs(input_dir):
     """
         input_dir: Directory name of the operation (i.e. the child directory in fyp/data)
@@ -112,7 +123,9 @@ def concat_csvs(csv_list, output_dir):
 
     print(f"Combined {len(csv_list)} files into {csv_path}")
 
+def process_csvs(csv_list, output_dir):
+    concat_csvs(csv_list, output_dir)
+    plot_graphs(output_dir)
+
 if __name__ == "__main__":
-    #concat_csvs([f"fyp/data/multiplication/metrics ({i}).csv" for i in range(1,4)], "multiplication")
-    plot_graphs("addition")
-    plot_graphs("multiplication")
+    process_csvs(["fyp/metrics (1).csv"], "division")
