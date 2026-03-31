@@ -7,12 +7,15 @@ ROOT = "fyp/data"
 
 """
 
-DATASET SIZES USED:
+DATASET, DATASET SIZE, EPOCHS TRAINED, STEPS COMPLETED:
 
-ADDITION + MULTIPLICATION: 50
-SUBTRACTION: 75
-SUBTRACTION-60: 60
-DIVISION: 66.7
+ADDITION: 50, 21597, 215980
+MULTIPLICATION: 50, 25096, 250970
+SUBTRACTION: 75, 1822, 25522
+SUBTRACTION-60: 60, 15280, 25522
+DIVISION: 66.7, 13842, 179959
+X^2+Y^2: 25, 85150, 425755
+
 
 """
 
@@ -128,4 +131,4 @@ def process_csvs(csv_list, output_dir):
     plot_graphs(output_dir)
 
 if __name__ == "__main__":
-    process_csvs(["fyp/metrics (1).csv"], "division")
+    process_csvs(["../../../Downloads/metrics (1).csv", "fyp/data/x^2+y^2_mod_97.csv"], "x^2+y^2_mod_97")
