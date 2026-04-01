@@ -15,6 +15,7 @@ SUBTRACTION: 75, 1822, 25522
 SUBTRACTION-60: 60, 15280, 25522
 DIVISION: 66.7, 13842, 179959
 X^2+Y^2: 25, 85150, 425755
+MIX1: 95, 27209, 489780
 
 
 """
@@ -131,4 +132,9 @@ def process_csvs(csv_list, output_dir):
     plot_graphs(output_dir)
 
 if __name__ == "__main__":
-    process_csvs(["../../../Downloads/metrics (1).csv", "fyp/data/x^2+y^2_mod_97.csv"], "x^2+y^2_mod_97")
+    df = pd.read_csv("../../../Downloads/mnist_grok_5000_8.0.csv")
+
+    df[['train_accuracy', 'val_accuracy']] = df[['train_accuracy', 'val_accuracy']] * 100
+    df.to_csv("../../../Downloads/mnist_grok_5000_8.0.csv", index=False)
+
+    process_csvs([f"../../../Downloads/mnist_grok_5000_8.0.csv"], "MNIST 5000 8.0")
