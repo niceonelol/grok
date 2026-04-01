@@ -52,6 +52,21 @@ class MNISTGrokker(nn.Module):
         self.batch_size = 500
 
         self.next_epoch_to_log = 0
+
+        self.initialize_weights()
+    
+    def initialize_weights(self, scale_factor=4.0):
+        for layer in self.modules():
+            if isinstance(layer, nn.Linear):
+                nn.init.kaiming_uniform_(
+                    layer.weight, mode='fan_in', nonlinearity='relu'
+                )
+
+                with torch.no_grad():
+                    layer.weight.mul_(scale_factor)
+                
+                if layer.bias is not None:
+                    nn.init.constant_(layer.bias, 0)
     
     def forward(self, x):
         return self.layers(x)
