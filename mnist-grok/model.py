@@ -126,21 +126,23 @@ class MNISTGrokker(nn.Module):
                 self.optimizer.zero_grad()
                 outputs = self(inputs)
 
-                weights_window.append(get_weights_fast(self))
-                calculate_phd = len(weights_window) == WEIGHTS_WINDOW_SIZE
                 phd_loss = 0
-                if calculate_phd:
-                    phdim_0 = calculate_ph_dim_gpu(
-                        torch.stack(weights_window),
-                        min_points=WEIGHTS_WINDOW_SIZE//10,
-                        max_points=WEIGHTS_WINDOW_SIZE,
-                        point_jump=WEIGHTS_WINDOW_SIZE//10
-                    )
-                    if regularise == 'phd_L1':
-                        phd_loss = torch.abs(phdim_0 - 4)
-                    elif regularise == 'phd_L2':
-                        phd_loss = (phdim_0 - 4) ** 2
-                    weights_window.pop(0)
+
+                if regularise:
+                    weights_window.append(get_weights_fast(self))
+                    calculate_phd = len(weights_window) == WEIGHTS_WINDOW_SIZE
+                    if calculate_phd:
+                        phdim_0 = calculate_ph_dim_gpu(
+                            torch.stack(weights_window),
+                            min_points=WEIGHTS_WINDOW_SIZE//10,
+                            max_points=WEIGHTS_WINDOW_SIZE,
+                            point_jump=WEIGHTS_WINDOW_SIZE//10
+                        )
+                        if regularise == 'phd_L1':
+                            phd_loss = torch.abs(phdim_0 - 4)
+                        else:
+                            phd_loss = (phdim_0 - 4) ** 2
+                        weights_window.pop(0)
 
                 loss = self.criterion(outputs, labels.float()) + eps * phd_loss
                 loss.backward()
@@ -155,6 +157,10 @@ class MNISTGrokker(nn.Module):
                     acc = (preds == targets).float().mean()
                     total_train_acc += coeff * acc.item()
                 step += 1
+            
+            if not regularise:
+                weights_window.append(get_weights_fast(self))
+                calculate_phd = len(weights_window) == WEIGHTS_WINDOW_SIZE
 
             if epoch == self.next_epoch_to_log:
                 self.next_epoch_to_log = max(
@@ -178,6 +184,14 @@ class MNISTGrokker(nn.Module):
                         targets = torch.argmax(labels, dim=1)
                         acc = (preds == targets).float().mean()
                         total_val_acc += coeff * acc.item()
+                    
+                    if not regularise and calculate_phd:
+                        phdim_0 = calculate_ph_dim_gpu(
+                            torch.stack(weights_window),
+                            min_points=WEIGHTS_WINDOW_SIZE//10,
+                            max_points=WEIGHTS_WINDOW_SIZE,
+                            point_jump=WEIGHTS_WINDOW_SIZE//10
+                        )
                 
                 row = [
                     epoch,
@@ -207,14 +221,14 @@ class MNISTGrokker(nn.Module):
                     torch.save(checkpoint, f"mnist-grok/epoch={epoch}-step={step}.ckpt")
                     print(f"REACHED VALIDATION ACCURACY {min_val_accuracy}. ENDING TRAINING")
                     break
+            
+            if calculate_phd and not regularise:
+                weights_window.pop(0)
 
             if epoch == self.next_epoch_to_print:
                 print(f"Epoch: {epoch}, Train Acc: {total_train_acc}, Val Acc: {total_val_acc}")
                 self.next_epoch_to_print = max(self.next_epoch_to_print + 100,
                                                 self.next_epoch_to_log)
-            
-            if calculate_phd:
-                weights_window.pop(0)
 
             if stopper.interrupted:
                 print("\nInterrupt received! Finishing current batch & saving model...")
