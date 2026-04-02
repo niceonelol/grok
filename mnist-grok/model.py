@@ -182,9 +182,9 @@ class MNISTGrokker(nn.Module):
                 row = [
                     epoch,
                     step,
-                    total_train_acc,
+                    100 * total_train_acc,
                     total_train_loss,
-                    total_val_acc,
+                    100 * total_val_acc,
                     total_val_loss
                 ]
 
