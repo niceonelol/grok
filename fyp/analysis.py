@@ -16,7 +16,11 @@ SUBTRACTION-60: 60, 15280, 25522
 DIVISION: 66.7, 13842, 179959
 X^2+Y^2: 25, 85150, 425755
 MIX1: 95, 27209, 489780
+QUAD2: 60, 23913, 286968
 
+
+In mnist_2500_5.0_L2_eps=*, used a 'hugging value' of 4
+In cifar_5000_5.0_L1_eps=0.5_hug=2, used 'hugging value' of 2
 
 """
 
@@ -132,9 +136,6 @@ def process_csvs(csv_list, output_dir):
     plot_graphs(output_dir)
 
 if __name__ == "__main__":
-    df = pd.read_csv("../../../Downloads/mnist_grok_5000_8.0.csv")
-
-    df[['train_accuracy', 'val_accuracy']] = df[['train_accuracy', 'val_accuracy']] * 100
-    df.to_csv("../../../Downloads/mnist_grok_5000_8.0.csv", index=False)
-
-    process_csvs([f"../../../Downloads/mnist_grok_5000_8.0.csv"], "MNIST 5000 8.0")
+    files = [f"../../../Downloads/cifar_grok_5000_5.0_0.5_phd_L1 ({i}).csv" for i in range(1,5)]
+    files.append("../../../Downloads/cifar_grok_5000_5.0_0.5_phd_L1.csv")
+    process_csvs(files, "cifar_5000_5.0_L1_eps=0.5_hug=2")
