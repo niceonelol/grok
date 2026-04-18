@@ -33,12 +33,12 @@ from grok.data import (
     ArithmeticIterator,
 )
 from grok.transformer import Transformer
-from grok.measure import get_sharpness, get_weights_fast
+from grok.measure import get_sharpness, get_weights_fast, E_alpha
 
-from phd.topology import calculate_ph_dim_gpu
+from phd.topology import calculate_ph_dim_gpu, calculate_ph_dim
 
 DEFAULT_LOG_DIR = "logs"
-WEIGHT_WINDOW_SIZE = 100
+WEIGHT_WINDOW_SIZE = 50
 
 class TrainableTransformer(LightningModule):
     """
@@ -77,6 +77,7 @@ class TrainableTransformer(LightningModule):
         self.curr_val_accuracy = None
 
         self.weights_window = []
+        self.tda_ready = False
 
     @staticmethod
     def add_model_specific_args(parser: ArgumentParser) -> ArgumentParser:
@@ -112,7 +113,7 @@ class TrainableTransformer(LightningModule):
             help="for list operations, the length of the lists",
         )
 
-        parser.add_argument("--train_data_pct", type=float, default=80)
+        parser.add_argument("--train_data_pct", type=float, default=50)
         parser.add_argument("--warmup_steps", type=int, default=10)
         parser.add_argument("--anneal_lr_steps", type=int, default=100000)
         parser.add_argument("--anneal_lr", dest="anneal_lr", action="store_true")
@@ -143,6 +144,36 @@ class TrainableTransformer(LightningModule):
 
         return parser
     
+    """
+    def on_save_checkpoint(self, checkpoint):
+        checkpoint["margin"] = self.margin
+        checkpoint["next_epoch_to_eval"] = self.next_epoch_to_eval
+        checkpoint["next_train_epoch_to_log"] = self.next_train_epoch_to_log
+        checkpoint["training_step_outputs"] = self.training_step_outputs
+        checkpoint["validation_step_outputs"] = self.validation_step_outputs
+        checkpoint["testing_step_outputs"] = self.testing_step_outputs
+        checkpoint["curr_val_accuracy"] = self.curr_val_accuracy
+        checkpoint["weights_window"] = self.weights_window
+
+    def on_load_checkpoint(self, checkpoint):
+        if "weights_window" in checkpoint:
+            self.margin = checkpoint["margin"]
+            self.next_epoch_to_eval = checkpoint["next_epoch_to_eval"]
+            self.next_train_epoch_to_log = checkpoint["next_train_epoch_to_log"]
+
+            self.training_step_outputs = checkpoint["training_step_outputs"]
+            self.validation_step_outputs = checkpoint["validation_step_outputs"]
+            self.testing_step_outputs = checkpoint["testing_step_outputs"]
+
+            self.curr_val_accuracy = checkpoint["curr_val_accuracy"]
+            self.weights_window = checkpoint["weights_window"]
+    
+
+    def on_train_start(self):
+        device = self.transformer.embedding.weight.device
+        self.weights_window = [t.to(self.device) for t in self.weights_window]
+    """
+
     def prepare_data(self) -> None:
         """
         Used by pytorch_lighting
@@ -453,6 +484,11 @@ class TrainableTransformer(LightningModule):
         :returns: a dict with loss, accuracy, lr, probabilities of solutions,
                   attentions, and values
         """
+        self.weights_window.append(get_weights_fast(self.transformer))
+        if len(self.weights_window) > WEIGHT_WINDOW_SIZE:
+            self.tda_ready = True
+            self.weights_window.pop(0)
+
         if self.next_train_epoch_to_log < self.current_epoch:
             self.next_train_epoch_to_log = self.current_epoch
 
@@ -505,11 +541,13 @@ class TrainableTransformer(LightningModule):
         outputs = self.training_step_outputs
         epoch_is_to_be_logged = self.current_epoch == self.next_train_epoch_to_log
 
+        """
         self.weights_window.append(get_weights_fast(self.transformer))
         calc_ph_flag = False
         if len(self.weights_window) > WEIGHT_WINDOW_SIZE:
             self.weights_window.pop(0)
             calc_ph_flag = True
+        """
 
         if epoch_is_to_be_logged:
             self.next_train_epoch_to_log = max(
@@ -537,10 +575,18 @@ class TrainableTransformer(LightningModule):
                     self._save_inputs(outputs, ds="train")
                 self._save_activations(outputs, ds="train")
             
-            phdim_0 = calculate_ph_dim_gpu(torch.stack(list(self.weights_window)),
+            stacked_weights = torch.stack(list(self.weights_window))
+            """
+            phdim_0 = calculate_ph_dim_gpu(stacked_weights,
                                              min_points=WEIGHT_WINDOW_SIZE//10,
                                              max_points=WEIGHT_WINDOW_SIZE,
-                                             point_jump=WEIGHT_WINDOW_SIZE//10) if calc_ph_flag else None
+                                             point_jump=WEIGHT_WINDOW_SIZE//10) if self.tda_ready else None
+            """
+            phdim_0 = calculate_ph_dim(stacked_weights.detach().numpy(),
+                                       min_points=WEIGHT_WINDOW_SIZE//10,
+                                       max_points=WEIGHT_WINDOW_SIZE,
+                                       point_jump=WEIGHT_WINDOW_SIZE//10) if self.tda_ready else None
+            e_alpha = E_alpha(stacked_weights) if self.tda_ready else None
 
             logs = {
                 "train_loss": loss,
@@ -555,7 +601,10 @@ class TrainableTransformer(LightningModule):
             }
 
             if phdim_0 is not None:
+                print("\nPHD:", phdim_0, "\n")
                 logs["phdim_0"] = phdim_0
+            if e_alpha is not None:
+                logs["e_alpha"] = e_alpha
             if self.curr_val_accuracy is not None:
                 logs["val_accuracy"] = self.curr_val_accuracy
 
@@ -592,6 +641,7 @@ class TrainableTransformer(LightningModule):
         if self.current_epoch == 0:
             output["x_lhs"] = x_lhs
         self.validation_step_outputs.append(output)
+        #print("VALIDATION STEP OUTPUTS LENGTH: ", len(self.validation_step_outputs))
         return output
 
     def on_validation_epoch_end(self):
@@ -603,7 +653,9 @@ class TrainableTransformer(LightningModule):
         :param batch_idx: which batch this is in the epoch.
         :returns: a dict with val_loss, val_accuracy
         """
+        #print("VALIDATION STEP OUTPUTS LENGTH AGAIN: ", len(self.validation_step_outputs))
         outputs = self.validation_step_outputs
+        #print("OUTPUTS: \n", outputs)
         validation_is_real = len(outputs[0]) != 0
 
         if validation_is_real:
@@ -764,6 +816,7 @@ def train(hparams: Namespace) -> None:
     torch.save(model, os.path.join(checkpoint_path, "init.pt"))
 
     logger = CSVLogger(hparams.logdir)
+    #logger = CSVLogger(save_dir=".", name="lightning_logs", version=6)
 
     # checkpointer = ModelCheckpoint(
     #     filepath=checkpoint_path,
@@ -775,9 +828,10 @@ def train(hparams: Namespace) -> None:
 
     early_stopping = EarlyStopping(monitor="val_accuracy",
                                    mode="max",
-                                   stopping_threshold=99,
+                                   stopping_threshold=98,
                                    patience=50000,
                                    verbose=True)
+
 
     trainer_args = {
         "max_steps": hparams.max_steps,
@@ -792,6 +846,7 @@ def train(hparams: Namespace) -> None:
         #"flush_logs_every_n_steps": 1000,
         "callbacks": early_stopping,
         "num_sanity_val_steps": 1,
+        #"precision": "bf16-mixed"
     }
     if torch.cuda.is_available() and hparams.gpu >= 0:
         trainer_args["accelerator"] = "gpu"
@@ -801,6 +856,7 @@ def train(hparams: Namespace) -> None:
 
     trainer = Trainer(**trainer_args)
 
+    #ckpt_path = "lightning_logs/version_17/checkpoints/epoch=8759-step=105120.ckpt"
     trainer.fit(model=model)  # type: ignore
     """
     margin = np.percentile(model.margin.detach().cpu().numpy(), 5)

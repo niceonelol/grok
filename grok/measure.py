@@ -4,6 +4,8 @@ import numpy as np
 
 import scipy.optimize
 
+from gph.python import ripser_parallel
+
 
 def get_loss_and_grads(x, model, data_loader):
 
@@ -66,6 +68,18 @@ def get_weights_fast(model):
         w.append(p.view(-1))
     return torch.cat(w)
 
+# Returns alpha-weighted lifetime sum for a model
+# Method taken from Rayna Andreeva et al.
+def E_alpha(stacked_weights, h_dim=0, alpha: float = 1., **kwargs) -> float:
+    dist_matrix_gpu = torch.cdist(stacked_weights, stacked_weights, p=2)
+    dist_matrix = dist_matrix_gpu.detach().cpu().numpy()
+
+    diagrams = ripser_parallel(dist_matrix, maxdim=0, n_threads=-1, metric="precomputed")['dgms']
+    d = diagrams[h_dim]
+    d = d[d[:, 1] < np.inf]
+    alpha_sum = np.power((d[:, 1] - d[:, 0]), alpha).sum()
+
+    return alpha_sum
 
 def get_sharpness(data_loader, model, subspace_dim=10, epsilon=1e-3, maxiter=10):
     """
