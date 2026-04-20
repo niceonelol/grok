@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import os
 
 ROOT = "fyp/data"
+PHD_TUP = ('phdim_0', 'Persistent Homology Dimension', 'red')
+ALPHA_TUP = ('e_alpha', 'Alpha Weighted Lifetime Sum', 'orange')
 
 """
 
@@ -24,7 +26,7 @@ In cifar_5000_5.0_L1_eps=0.5_hug=2, used 'hugging value' of 2
 
 """
 
-def plot_accuracies_phdim_against_epochs(input_dir):
+def plot_accuracies_phdim_against_epochs(input_dir, metric_tup=PHD_TUP, smoothing=1):
     """
         input_dir: Directory name of the operation (i.e. the child directory in fyp/data)
                    Examples: 'addition', 'multiplication' etc.
@@ -32,13 +34,21 @@ def plot_accuracies_phdim_against_epochs(input_dir):
         This function plots training acc, validation acc and Persistent Homology Dimension
         against epochs. CSV file must follow format of that outputted by scripts/train.py
     """
-
+    metric, label, color = metric_tup
     input_parent_dir = os.path.join(ROOT, input_dir)
     df = pd.read_csv(os.path.join(input_parent_dir, input_dir + ".csv")).sort_values('epoch')
 
-    df_train = df.dropna(subset=['train_accuracy'])
-    df_val = df.dropna(subset=['val_accuracy'])
-    df_ph = df[df['phdim_0'] >= 0].dropna(subset=['phdim_0'])
+    df_train = df.dropna(subset=['train_accuracy']).copy()
+    df_train['train_accuracy'] = df_train['train_accuracy'].rolling(smoothing, center=True, min_periods=1).median()
+    df_val = df.dropna(subset=['val_accuracy']).copy()
+    df_val['val_accuracy'] = df_val['val_accuracy'].rolling(smoothing, center=True, min_periods=1).median()
+    df_ph = df.dropna(subset=[metric]).copy()
+    if metric == 'phdim_0':
+        lqr, uqr = df_ph[metric].quantile(0.25), df_ph[metric].quantile(0.75)
+        iqr = uqr - lqr
+        l_bound, u_bound = lqr - 1.5 * iqr, uqr + 1.5 * iqr
+        df_ph = df_ph[(df_ph[metric] >= l_bound) & (df_ph[metric] <= u_bound)]
+    df_ph[metric] = df_ph[metric].rolling(smoothing, center=True, min_periods=1).median()
 
     fig, ax1 = plt.subplots(figsize=(10, 6))
 
@@ -53,11 +63,11 @@ def plot_accuracies_phdim_against_epochs(input_dir):
     ax1.set_ylabel('Accuracy (%)')
 
     ax2 = ax1.twinx()
-    ax2.plot(df_ph['epoch'], df_ph['phdim_0'], color='red', linewidth=0.8, label='Persistent Homology Dimension')
+    ax2.plot(df_ph['epoch'], df_ph[metric], color=color, linewidth=0.8, label=label)
     
     #ax2.set_yscale('log')
-    ax2.set_ylim(bottom=0)
-    ax2.set_ylabel('Persistent Homology Dimension ')
+    #ax2.set_ylim(bottom=0)
+    ax2.set_ylabel(label)
     ax2.tick_params(axis='y')
 
     plt.title(f"{input_dir} operation")
@@ -67,16 +77,26 @@ def plot_accuracies_phdim_against_epochs(input_dir):
     ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left', fontsize='x-small')
 
     plt.tight_layout()
-    plt.savefig(os.path.join(input_parent_dir, input_dir + "_acc.png"))
+    plt.savefig(os.path.join(input_parent_dir, input_dir + f"_{metric}_acc.png"))
     plt.show()
 
-def plot_losses_phdim_against_epochs(input_dir): 
+def plot_losses_phdim_against_epochs(input_dir, metric_tup=PHD_TUP, smoothing=1): 
+
+    metric, label, color = metric_tup
     input_parent_dir = os.path.join(ROOT, input_dir)
     df = pd.read_csv(os.path.join(input_parent_dir, input_dir + ".csv")).sort_values('epoch')
 
-    df_train = df.dropna(subset=['train_loss'])
-    df_val = df.dropna(subset=['val_loss'])
-    df_ph = df[df['phdim_0'] >= 0].dropna(subset=['phdim_0'])
+    df_train = df.dropna(subset=['train_loss']).copy()
+    df_train['train_loss'] = df_train['train_loss'].rolling(smoothing, center=True, min_periods=1).median()
+    df_val = df.dropna(subset=['val_loss']).copy()
+    df_val['val_loss'] = df_val['val_loss'].rolling(smoothing, center=True, min_periods=1).median()
+    df_ph = df.dropna(subset=[metric]).copy()
+    if metric == 'phdim_0':
+        lqr, uqr = df_ph[metric].quantile(0.25), df_ph[metric].quantile(0.75)
+        iqr = uqr - lqr
+        l_bound, u_bound = lqr - 1.5 * iqr, uqr + 1.5 * iqr
+        df_ph = df_ph[(df_ph[metric] >= l_bound) & (df_ph[metric] <= u_bound)]
+    df_ph[metric] = df_ph[metric].rolling(smoothing, center=True, min_periods=1).median()
 
     fig, ax1 = plt.subplots(figsize=(10, 6))
 
@@ -90,11 +110,11 @@ def plot_losses_phdim_against_epochs(input_dir):
     ax1.set_ylabel('Loss')
 
     ax2 = ax1.twinx()
-    ax2.plot(df_ph['epoch'], df_ph['phdim_0'], color='red', linewidth=0.8, label='Persistent Homology Dimension')
+    ax2.plot(df_ph['epoch'], df_ph[metric], color=color, linewidth=0.8, label=label)
     
     #ax2.set_yscale('log')
     #ax2.set_ylim(bottom=0)
-    ax2.set_ylabel('Persistent Homology Dimension')
+    ax2.set_ylabel(label)
     ax2.tick_params(axis='y')
 
     plt.title(f"{input_dir} operation")
@@ -104,12 +124,12 @@ def plot_losses_phdim_against_epochs(input_dir):
     ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left', fontsize='x-small')
 
     plt.tight_layout()
-    plt.savefig(os.path.join(input_parent_dir, input_dir + "_loss.png"))
+    plt.savefig(os.path.join(input_parent_dir, input_dir + f"_{metric}_loss.png"))
     plt.show()
 
-def plot_graphs(operation):
-    plot_losses_phdim_against_epochs(operation)
-    plot_accuracies_phdim_against_epochs(operation)
+def plot_graphs(operation, metric_tup=PHD_TUP, smoothing=1):
+    plot_losses_phdim_against_epochs(operation, metric_tup=metric_tup, smoothing=smoothing)
+    plot_accuracies_phdim_against_epochs(operation, metric_tup=metric_tup, smoothing=smoothing)
 
 def concat_csvs(csv_list, output_dir):
     
@@ -122,20 +142,21 @@ def concat_csvs(csv_list, output_dir):
     csv_path = os.path.join(full_output_dir, output_dir + ".csv")
     combined_df.to_csv(csv_path, index=False)
 
+    """
     for f in csv_list:
         try:
             os.remove(f)
             print(f"Deleted: {f}")
         except OSError as e:
             print(f"Error deleting {f}: {e}")
+    """
 
     print(f"Combined {len(csv_list)} files into {csv_path}")
 
-def process_csvs(csv_list, output_dir):
+def process_csvs(csv_list, output_dir, metric_tup=PHD_TUP, smoothing=1):
     concat_csvs(csv_list, output_dir)
-    plot_graphs(output_dir)
+    plot_graphs(output_dir, metric_tup=metric_tup, smoothing=smoothing)
 
 if __name__ == "__main__":
-    files = [f"../../../Downloads/cifar_grok_5000_5.0_0.5_phd_L1 ({i}).csv" for i in range(1,5)]
-    files.append("../../../Downloads/cifar_grok_5000_5.0_0.5_phd_L1.csv")
-    process_csvs(files, "cifar_5000_5.0_L1_eps=0.5_hug=2")
+    files = [f"../../../Downloads/metrics ({i}).csv" for i in range (2,4)]
+    process_csvs(files, "alpha_subtraction", metric_tup=PHD_TUP ,smoothing=9)
