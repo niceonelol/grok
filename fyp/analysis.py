@@ -20,6 +20,11 @@ X^2+Y^2: 25, 85150, 425755
 MIX1: 95, 27209, 489780
 QUAD2: 60, 23913, 286968
 
+ALPHA_ADDITION: 50
+ALPHA_SUBTRACTION: 60
+ALPHA_MULTIPLICATION: 50
+ALPHA_DIVISION: 66.7
+X^2+Y^2: 
 
 In mnist_2500_5.0_L2_eps=*, used a 'hugging value' of 4
 In cifar_5000_5.0_L1_eps=0.5_hug=2, used 'hugging value' of 2
@@ -158,5 +163,6 @@ def process_csvs(csv_list, output_dir, metric_tup=PHD_TUP, smoothing=1):
     plot_graphs(output_dir, metric_tup=metric_tup, smoothing=smoothing)
 
 if __name__ == "__main__":
-    files = [f"../../../Downloads/metrics ({i}).csv" for i in range (2,4)]
-    process_csvs(files, "alpha_subtraction", metric_tup=PHD_TUP ,smoothing=9)
+    files = [f"../../../Downloads/metrics (6).csv"]
+    process_csvs(files, "alpha_division", metric_tup=PHD_TUP, smoothing=9)
+    process_csvs(files, "alpha_division", metric_tup=ALPHA_TUP, smoothing=9)
