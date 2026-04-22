@@ -163,6 +163,6 @@ def process_csvs(csv_list, output_dir, metric_tup=PHD_TUP, smoothing=1):
     plot_graphs(output_dir, metric_tup=metric_tup, smoothing=smoothing)
 
 if __name__ == "__main__":
-    files = [f"../../../Downloads/metrics (6).csv"]
-    process_csvs(files, "alpha_division", metric_tup=PHD_TUP, smoothing=9)
-    process_csvs(files, "alpha_division", metric_tup=ALPHA_TUP, smoothing=9)
+    files = [f"fyp/data/x^2+y^2_mod_97/x^2+y^2_mod_97.csv"]
+    process_csvs(files, "x^2+y^2_mod_97", metric_tup=PHD_TUP, smoothing=5)
+    #process_csvs(files, "alpha_division", metric_tup=ALPHA_TUP, smoothing=9)
