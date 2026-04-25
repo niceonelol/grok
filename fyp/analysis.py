@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from scipy.stats import kendalltau
 
 ROOT = "fyp/data"
 PHD_TUP = ('phdim_0', 'Persistent Homology Dimension', 'red')
@@ -24,7 +25,9 @@ ALPHA_ADDITION: 50
 ALPHA_SUBTRACTION: 60
 ALPHA_MULTIPLICATION: 50
 ALPHA_DIVISION: 66.7
-X^2+Y^2: 
+ALPHA_X^2+Y^2: 30
+ALPHA_MIX1: 95
+ALPHA_QUAD2: 65
 
 In mnist_2500_5.0_L2_eps=*, used a 'hugging value' of 4
 In cifar_5000_5.0_L1_eps=0.5_hug=2, used 'hugging value' of 2
@@ -162,7 +165,58 @@ def process_csvs(csv_list, output_dir, metric_tup=PHD_TUP, smoothing=1):
     concat_csvs(csv_list, output_dir)
     plot_graphs(output_dir, metric_tup=metric_tup, smoothing=smoothing)
 
+def kendall_coeffs(op, metric, acc=True, smoothing=5):
+    if acc:
+        v = 'val_accuracy'
+    else:
+        v = 'val_loss'
+    path = os.path.join(ROOT, op, f"{op}.csv")
+    df = pd.read_csv(path).sort_values('epoch')
+    df = df.dropna(subset=[metric, v]).copy()
+    df = df[df[metric] >= 0]
+
+    """
+    df[v] = df[v].rolling(smoothing, center=True, min_periods=1).median()
+    if metric == 'phdim_0':
+
+        lqr, uqr = df[metric].quantile(0.25), df[metric].quantile(0.75)
+        iqr = uqr - lqr
+        l_bound, u_bound = lqr - 1.5 * iqr, uqr + 1.5 * iqr
+        df = df[(df[metric] >= l_bound) & (df[metric] <= u_bound)]
+    
+    df[metric] = df[metric].rolling(smoothing, center=True, min_periods=1).median()
+    """
+
+    df = df[[metric, v, 'epoch']].copy()
+
+    df = df.sort_values('epoch')
+    N = df.shape[0]
+    print(N,"\n")
+    k = 1 + int(np.log2(N))
+    
+    test_bin_sizes = [N//10] #range(max(2, k//2), max(2, 4 * k + 1))
+    print(f"Bin range: [{test_bin_sizes[0]},{test_bin_sizes[-1]}], Number of tests: {len(test_bin_sizes)}")
+    kendall_taus = []
+    for i in test_bin_sizes:
+        bins = np.array_split(df, i)
+        metric_means, v_means = [], []
+        for bin_ in bins:
+            metric_means.append(bin_[:, 0].mean())
+            v_means.append(bin_[:, 1].mean())
+        print(metric_means)
+        print(v_means)
+        res = kendalltau(metric_means, v_means)
+        #if res.pvalue < 0.05:
+        kendall_taus.append((i, res.statistic, res.pvalue))
+    
+    print(np.mean([x for (_, x, _) in kendall_taus]), "\n", kendall_taus)
+    return kendall_taus
+
+
 if __name__ == "__main__":
-    files = [f"fyp/data/x^2+y^2_mod_97/x^2+y^2_mod_97.csv"]
-    process_csvs(files, "x^2+y^2_mod_97", metric_tup=PHD_TUP, smoothing=5)
-    #process_csvs(files, "alpha_division", metric_tup=ALPHA_TUP, smoothing=9)
+    
+    files = [f"../../../Downloads/mnist_grok_1000_2.0.csv"]
+    process_csvs(files, "alpha_mnist_1000_2.0", metric_tup=PHD_TUP, smoothing=5)
+    process_csvs(files, "alpha_mnist_1000_2.0", metric_tup=ALPHA_TUP, smoothing=5)
+    
+    #kendall_coeffs('x^2+y^2_mod_97', 'phdim_0', smoothing=9)
