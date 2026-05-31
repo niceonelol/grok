@@ -5,6 +5,8 @@ import numpy as np
 import scipy.optimize
 
 from gph.python import ripser_parallel
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="ripser")
 
 
 def get_loss_and_grads(x, model, data_loader):

@@ -7,3 +7,6 @@ blobfile
 scipy
 matplotlib
 scikit-learn
+giotto-ph
+ripser
+ninja
