@@ -135,6 +135,50 @@ def plot_losses_phdim_against_epochs(input_dir, metric_tup=PHD_TUP, smoothing=1)
     plt.savefig(os.path.join(input_parent_dir, input_dir + f"_{metric}_loss.png"))
     plt.show()
 
+def plot_combined_accuracy_against_epochs(input_dir, smoothing=5, seed=46):
+
+    ametric, alabel, acolor = ALPHA_TUP
+    pmetric, plabel, pcolor = PHD_TUP
+    input_parent_dir = os.path.join(ROOT, input_dir)
+    df = pd.read_csv(os.path.join(input_parent_dir, input_dir + ".csv")).sort_values('epoch')
+
+    df_train = df.dropna(subset=['train_accuracy']).copy()
+    df_train['train_accuracy'] = (df_train['train_accuracy'] / 100.0).rolling(smoothing, center=True, min_periods=1).median()
+    df_val = df.dropna(subset=['val_accuracy']).copy()
+    df_val['val_accuracy'] = (df_val['val_accuracy'] / 100.0).rolling(smoothing, center=True, min_periods=1).median()
+    df_ph = df.dropna(subset=[pmetric]).copy()
+    if pmetric == 'phdim_0':
+        lqr, uqr = df_ph[pmetric].quantile(0.25), df_ph[pmetric].quantile(0.75)
+        iqr = uqr - lqr
+        l_bound, u_bound = lqr - 1.5 * iqr, uqr + 1.5 * iqr
+        df_ph = df_ph[(df_ph[pmetric] >= l_bound) & (df_ph[pmetric] <= u_bound)]
+    df_ph[pmetric] = ((df_ph[pmetric] - df_ph[pmetric].min()) / (df_ph[pmetric].max() - df_ph[pmetric].min())).rolling(smoothing, center=True, min_periods=1).median()
+
+    df_a = df.dropna(subset=[ametric]).copy()
+    df_a[ametric] = ((df_a[ametric] - df_a[ametric].min()) / (df_a[ametric].max() - df_a[ametric].min())).rolling(smoothing, center=True, min_periods=1).median()
+
+    fig, ax1 = plt.subplots(figsize=(10, 6))
+
+    ax1.set_facecolor('#e6f3ff') 
+
+    ax1.plot(df_train['epoch'], df_train['train_accuracy'], color='blue', linewidth=2.0, label='Train Acc')
+    ax1.plot(df_val['epoch'], df_val['val_accuracy'], color='green', linewidth=2.0, label='Val Acc')
+    ax1.plot(df_ph['epoch'], df_ph[pmetric], color=pcolor, linewidth=2.0, label=plabel)
+    ax1.plot(df_a['epoch'], df_a[ametric], color=acolor, linewidth=2.0, label=alabel)
+
+    ax1.tick_params(axis='both', which='major', labelsize=18)
+    ax1.tick_params(axis='both', which='minor', labelsize=18)
+
+    ax1.set_xscale('log')          
+    ax1.set_ylim(0, 1)        
+    ax1.set_xlabel('Epoch (Log Scale)', fontsize=20)
+    ax1.set_ylabel('Normalised Value [0,1]', fontsize=20)
+
+    plt.title(f"Seed {seed}", fontsize=24)
+
+    plt.tight_layout()
+    plt.savefig(os.path.join(input_parent_dir, input_dir + f"_combined_acc.png"))
+
 def plot_graphs(operation, metric_tup=PHD_TUP, smoothing=1):
     plot_losses_phdim_against_epochs(operation, metric_tup=metric_tup, smoothing=smoothing)
     plot_accuracies_phdim_against_epochs(operation, metric_tup=metric_tup, smoothing=smoothing)
@@ -212,11 +256,24 @@ def kendall_coeffs(op, metric, acc=True, smoothing=5):
     print(np.mean([x for (_, x, _) in kendall_taus]), "\n", kendall_taus)
     return kendall_taus
 
+def average_csvs_over_seeds(csv_list, output_path):
+    # take mean of the columns train_accuracy,train_loss,val_accuracy,val_loss,phdim_0,e_alpha
+    # should still keep epoch and step columns, but can take mean of them as well since they should be the same across all csv files
+    df_list = [pd.read_csv(f) for f in csv_list]
+    combined_df = pd.concat(df_list, ignore_index=True)
+    combined_df = combined_df.groupby(combined_df.index).mean()
+
+    combined_df.to_csv(output_path, index=False)
+    print(f"Averaged {len(csv_list)} files into {output_path}")
+    return output_path
+
 
 if __name__ == "__main__":
-    
-    files = [f"../../../Downloads/mnist_grok_1000_2.0.csv"]
-    process_csvs(files, "alpha_mnist_1000_2.0", metric_tup=PHD_TUP, smoothing=5)
-    process_csvs(files, "alpha_mnist_1000_2.0", metric_tup=ALPHA_TUP, smoothing=5)
-    
+
+    for i in range(46,49):
+        plot_combined_accuracy_against_epochs(f"alpha_mnist_2000_4.0_seed{i}", smoothing=5, seed=i)
+
+    #process_csvs(files, f"averaged_mnist_grok_2000_4.0", metric_tup=PHD_TUP, smoothing=5)
+    #process_csvs(files, f"averaged_mnist_grok_2000_4.0", metric_tup=ALPHA_TUP, smoothing=5)
+        
     #kendall_coeffs('x^2+y^2_mod_97', 'phdim_0', smoothing=9)
