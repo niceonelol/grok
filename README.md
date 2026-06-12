@@ -10,6 +10,16 @@ Graphs included in Chapter 3. 4 & 5.3 of my dissertation can be found in fyp/dat
 
 Data for Chapter 5.1 & 5.2 of my dissertation can be found in sanity_checker/e_alpha_data and sanity_checker/phdim_data respectively. 
 
+## Training MLPs on MNIST
+
+Here is an example on how to run the code from Chapter 4 for a training size of 2000, a weights scale factor of 4.0 on the random seed 47:
+
+```
+py mnist-grok/model.py --train_size 2000 --scale_factor 4.0 --seed 47
+```
+
+The snippet above will train that model for 100,000 epochs.
+
 ## Setting up
 
 Upon cloning, run the following in terminal, to ensure the git submodules are also cloned:
