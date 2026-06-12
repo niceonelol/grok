@@ -11,7 +11,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 
 # ---------------------------------------------------------------------------
-# Provided AlexNet & Weight Function
+# This class was taken from Birdal et al. [6]
 # ---------------------------------------------------------------------------
 class AlexNet(nn.Module):
     def __init__(self, input_height=32, input_width=32, input_channels=3, ch=64, num_classes=1000):
@@ -69,12 +69,14 @@ def get_full_network_weights_gpu(model):
         w_fragments.append(param.detach().view(-1))
     return torch.cat(w_fragments)
 
-# Taken from Birdal et al. (2021) https://arxiv.org/pdf/2111.13171
+# Taken from Birdal et al. [6]
 def sample_W(W, nSamples, isRandom=True):
     n = W.shape[0]
     random_indices = np.random.choice(n, size=nSamples, replace=False)
     return W[random_indices]
 
+
+# Taken from Birdal et al. [6]
 def calculate_ph_dim_gpu(W, min_points=200, max_points=1000, 
         point_jump=50, h_dim=0, print_error=False):
     from torchph.torchph.pershom import vr_persistence
@@ -138,7 +140,6 @@ def main():
     for seed in seeds:
         for batch_size in batch_sizes:
             
-            # 1. Strict Reproducibility
             torch.manual_seed(seed)
             np.random.seed(seed)
             random.seed(seed)
@@ -147,16 +148,13 @@ def main():
 
             train_loader, test_loader = get_dataloaders(batch_size, seed)
             
-            # 2. Calculate Epochs & Intervals
             iters_per_epoch = len(train_loader)
             exact_epochs = target_iterations / iters_per_epoch
-            # Round up to nearest 100
             total_epochs = math.ceil(exact_epochs / 100.0) * 100
             checkpoint_interval = total_epochs // 100
 
             print(f"Seed: {seed} | Batch: {batch_size} | Iters/Epoch: {iters_per_epoch} | Total Epochs: {total_epochs}")
             
-            # 3. Initialize Model & Optimizer
             model = AlexNet(num_classes=10).to(device)
             optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9, weight_decay=5e-4)
             criterion = nn.CrossEntropyLoss()
@@ -173,7 +171,6 @@ def main():
                     correct_train = 0
                     total_train = 0
 
-                    # Training Loop
                     for inputs, targets in train_loader:
                         inputs, targets = inputs.to(device), targets.to(device)
                         
@@ -189,7 +186,6 @@ def main():
                         
                         trajectory.append(get_full_network_weights_gpu(model))
                     
-                    # Checkpoint Phase
                     if epoch % checkpoint_interval == 0:
                         train_acc = 100. * correct_train / total_train
                         
@@ -208,11 +204,10 @@ def main():
                                 
                         test_acc = 100. * correct_test / total_test
                         
-                        # Ensure deque is fully populated
                         if len(trajectory) == 1000:
                             phdim = calculate_ph_dim_gpu(torch.stack(list(trajectory)), min_points=200, max_points=1000, point_jump=50)
                         else:
-                            phdim = None # Or 0.0 if preferred
+                            phdim = None
                         
                         print(f"Epoch: {epoch} | Train Acc: {train_acc:.2f}% | Test Acc: {test_acc:.2f}% | PH Dim: {phdim}")
                             
