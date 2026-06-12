@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+# This file was originally written by Power et al. [1] and has been updated by me as this
+# project was developed before the release of PyTorch Lightning 2.0. I updated the legacy
+# code and ensured that the PHD and E_alpha metrics are calculated and logged. 
+
 import argparse
 import copy
 import json
@@ -38,7 +42,8 @@ from grok.measure import get_sharpness, get_weights_fast, E_alpha
 from phd.topology import calculate_ph_dim_gpu, calculate_ph_dim
 
 DEFAULT_LOG_DIR = "logs"
-WEIGHT_WINDOW_SIZE = 50
+E_ALPHA_WINDOW = 1000
+PHDIM_WINDOW = 100  
 
 class TrainableTransformer(LightningModule):
     """
@@ -77,7 +82,9 @@ class TrainableTransformer(LightningModule):
         self.curr_val_accuracy = None
 
         self.weights_window = []
+        self.epoch_weights_window = []
         self.tda_ready = False
+        self.phdim_ready = False
 
     @staticmethod
     def add_model_specific_args(parser: ArgumentParser) -> ArgumentParser:
@@ -485,7 +492,7 @@ class TrainableTransformer(LightningModule):
                   attentions, and values
         """
         self.weights_window.append(get_weights_fast(self.transformer))
-        if len(self.weights_window) > WEIGHT_WINDOW_SIZE:
+        if len(self.weights_window) > E_ALPHA_WINDOW:
             self.tda_ready = True
             self.weights_window.pop(0)
 
@@ -541,13 +548,10 @@ class TrainableTransformer(LightningModule):
         outputs = self.training_step_outputs
         epoch_is_to_be_logged = self.current_epoch == self.next_train_epoch_to_log
 
-        """
-        self.weights_window.append(get_weights_fast(self.transformer))
-        calc_ph_flag = False
-        if len(self.weights_window) > WEIGHT_WINDOW_SIZE:
-            self.weights_window.pop(0)
-            calc_ph_flag = True
-        """
+        self.epoch_weights_window.append(get_weights_fast(self.transformer))
+        if len(self.epoch_weights_window) > PHDIM_WINDOW:
+            self.epoch_weights_window.pop(0)
+            self.phdim_ready = True
 
         if epoch_is_to_be_logged:
             self.next_train_epoch_to_log = max(
@@ -576,16 +580,13 @@ class TrainableTransformer(LightningModule):
                 self._save_activations(outputs, ds="train")
             
             stacked_weights = torch.stack(list(self.weights_window))
-            """
-            phdim_0 = calculate_ph_dim_gpu(stacked_weights,
-                                             min_points=WEIGHT_WINDOW_SIZE//10,
-                                             max_points=WEIGHT_WINDOW_SIZE,
-                                             point_jump=WEIGHT_WINDOW_SIZE//10) if self.tda_ready else None
-            """
-            phdim_0 = calculate_ph_dim(stacked_weights.detach().numpy(),
-                                       min_points=WEIGHT_WINDOW_SIZE//10,
-                                       max_points=WEIGHT_WINDOW_SIZE,
-                                       point_jump=WEIGHT_WINDOW_SIZE//10) if self.tda_ready else None
+            stacked_epoch_weights = torch.stack(list(self.epoch_weights_window))
+
+            phdim_0 = calculate_ph_dim_gpu(stacked_epoch_weights,
+                                        min_points=PHDIM_WINDOW//10,
+                                        max_points=PHDIM_WINDOW,
+                                        point_jump=PHDIM_WINDOW//10) if self.phdim_ready else None
+            
             e_alpha = E_alpha(stacked_weights) if self.tda_ready else None
 
             logs = {
@@ -601,7 +602,6 @@ class TrainableTransformer(LightningModule):
             }
 
             if phdim_0 is not None:
-                print("\nPHD:", phdim_0, "\n")
                 logs["phdim_0"] = phdim_0
             if e_alpha is not None:
                 logs["e_alpha"] = e_alpha
