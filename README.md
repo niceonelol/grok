@@ -4,6 +4,14 @@ As mentioned clearly in the 'Declarations' section of the main report of my diss
 
 Further information on code which is/isn't written by me can be found in that section of the report (e.g. the Git submodules in this code are cloned from the papers of [6, 31, 32]). Furthermore, I will state in specific files if code is written by someone else, along with the appropriate reference (refer to my main report to find the references). Otherwise, the remainder of this README will focus on how to run the code and how to access the data.
 
+## Accessing data
+
+Graphs included in Chapter 3. 4 & 5.3 of my dissertation can be found in fyp/data. Note that there are more graphs here than those included in the paper as other experiments were conducted that are not included. These also include the relevant CSV files and models that were logged/trained. 
+
+Data for Chapter 5.1 & 5.2 of my dissertation can be found in sanity_checker/e_alpha_data and sanity_checker/phdim_data respectively. 
+
+## Setting up
+
 Upon cloning, run the following in terminal, to ensure the git submodules are also cloned:
 
 ```bash
