@@ -1,5 +1,9 @@
 # Arya Narang's code for Imperial Dissertation titled: Topology of Grokking
 
+As mentioned clearly in the 'Declarations' section of the main report of my dissertation, this code is forked from the repo of Power et al. [1]: https://github.com/openai/grok
+
+Further information on code which is/isn't written by me can be found in that section of the report (e.g. the Git submodules in this code are cloned from the papers of [6, 31, 32]). Furthermore, I will state in specific files if code is written by someone else, along with the appropriate reference (refer to my main report to find the references). Otherwise, the remainder of this README will focus on how to run the code and how to access the data.
+
 Upon cloning, run the following in terminal, to ensure the git submodules are also cloned:
 
 ```bash
