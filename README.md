@@ -1,10 +1,4 @@
-# OpenAI Grok Curve Experiments
-
-## Paper
-
-This is the code for the paper [Grokking: Generalization Beyond Overfitting on Small Algorithmic Datasets](https://arxiv.org/abs/2201.02177) by Alethea Power, Yuri Burda, Harri Edwards, Igor Babuschkin, and Vedant Misra
-
-## Installation and Training
+# Arya Narang's code for Imperial Dissertation titled: Topology of Grokking
 
 Upon cloning, run the following in terminal, to ensure the git submodules are also cloned:
 
