@@ -6,7 +6,7 @@ Further information on code which is/isn't written by me can be found in that se
 
 ## Accessing data
 
-Graphs included in Chapter 3. 4 & 5.3 of my dissertation can be found in fyp/data. Note that there are more graphs here than those included in the paper as other experiments were conducted that are not included. These also include the relevant CSV files and models that were logged/trained. 
+Graphs included in Chapter 3, 4 & 5.3 of my dissertation can be found in fyp/data. Note that there are more graphs here than those included in the paper as other experiments were conducted that are not included. These also include the relevant CSV files and models that were logged/trained. 
 
 Data for Chapter 5.1 & 5.2 of my dissertation can be found in sanity_checker/e_alpha_data and sanity_checker/phdim_data respectively. 
 
@@ -56,11 +56,17 @@ py scripts/train.py --random_seed 47 --train_data_pct 50 --math_operator "+"
 The 7 binary operations trained in this dissertation are represented by the following strings:
 
 Modular addition: "+"
+
 Modular multiplication: "*"
+
 Modular subtraction: "-"
+
 Modular division: "/"
+
 (x^2 + y^2) mod 97: "quad1"
+
 (x^2 + xy + y^2) mod 97: "quad2"
+
 ((x div y) if y odd else (x − y)) mod 97: "mix1"
 
 Substitute the strings above into the 'math_operator' argument depending on the operation you want to run.
